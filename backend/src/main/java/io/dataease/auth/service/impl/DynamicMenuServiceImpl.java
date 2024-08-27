@@ -3,15 +3,16 @@ package io.dataease.auth.service.impl;
 import io.dataease.auth.api.dto.DynamicMenuDto;
 import io.dataease.auth.api.dto.MenuMeta;
 import io.dataease.auth.service.DynamicMenuService;
-import io.dataease.base.domain.SysMenu;
-import io.dataease.base.domain.SysMenuExample;
-import io.dataease.base.mapper.SysMenuMapper;
-import io.dataease.base.mapper.ext.ExtPluginSysMenuMapper;
+import io.dataease.plugins.common.base.domain.SysMenu;
+import io.dataease.plugins.common.base.mapper.SysMenuMapper;
+import io.dataease.ext.ExtPluginSysMenuMapper;
+import io.dataease.ext.ExtSysMenuMapper;
 import io.dataease.plugins.common.dto.PluginSysMenu;
 import io.dataease.plugins.util.PluginUtils;
 import org.apache.commons.collections4.CollectionUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import javax.annotation.Resource;
@@ -30,12 +31,12 @@ public class DynamicMenuServiceImpl implements DynamicMenuService {
     @Resource
     private ExtPluginSysMenuMapper extPluginSysMenuMapper;
 
+    @Resource
+    private ExtSysMenuMapper extSysMenuMapper;
+
     @Override
     public List<DynamicMenuDto> load(String userId) {
-        SysMenuExample sysMenuExample = new SysMenuExample();
-        sysMenuExample.createCriteria().andTypeLessThanOrEqualTo(1);
-        sysMenuExample.setOrderByClause(" menu_sort ");
-        List<SysMenu> sysMenus = sysMenuMapper.selectByExample(sysMenuExample);
+        List<SysMenu> sysMenus = extSysMenuMapper.querySysMenu();
         List<DynamicMenuDto> dynamicMenuDtos = sysMenus.stream().map(this::convert).collect(Collectors.toList());
         //增加插件中的菜单
         List<PluginSysMenu> pluginSysMenus = PluginUtils.pluginMenus();
@@ -118,12 +119,9 @@ public class DynamicMenuServiceImpl implements DynamicMenuService {
         return null == pid || pid == 0L;
     }
 
-    @Transactional
-    public void syncPluginMenu() {
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void syncPluginMenu(List<PluginSysMenu> pluginSysMenuList) {
         extPluginSysMenuMapper.deletePluginMenu();
-        List<PluginSysMenu> pluginSysMenuList = PluginUtils.pluginMenus();
-        Set<PluginSysMenu> pluginSysMenuSet = new HashSet<>(pluginSysMenuList);
-        pluginSysMenuList = new ArrayList<>(pluginSysMenuSet);
         if (CollectionUtils.isNotEmpty(pluginSysMenuList)) {
             extPluginSysMenuMapper.savePluginMenu(pluginSysMenuList);
         }

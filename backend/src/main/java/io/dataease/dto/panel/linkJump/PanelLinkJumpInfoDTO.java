@@ -1,7 +1,7 @@
 package io.dataease.dto.panel.linkJump;
 
-import io.dataease.base.domain.PanelLinkJumpInfo;
-import io.dataease.base.domain.PanelLinkJumpTargetViewInfo;
+import io.dataease.plugins.common.base.domain.PanelLinkJumpInfo;
+import io.dataease.plugins.common.base.domain.PanelLinkJumpTargetViewInfo;
 import lombok.Data;
 
 import java.util.ArrayList;
@@ -18,6 +18,9 @@ public class PanelLinkJumpInfoDTO extends PanelLinkJumpInfo {
     private String sourceFieldName;
 
     private String sourceJumpInfo;
+
+    //存在公共链接的目标仪表板
+    private String publicJumpId;
 
     private List<PanelLinkJumpTargetViewInfo> targetViewInfoList=new ArrayList<>();// linkType = inner 时使用
 

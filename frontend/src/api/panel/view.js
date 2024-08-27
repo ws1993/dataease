@@ -4,7 +4,6 @@ export function tree(data) {
   return request({
     url: '/api/panelView/tree',
     method: 'post',
-    timeout: 30000,
     data
   })
 }
@@ -13,7 +12,15 @@ export function viewsWithIds(data) {
   return request({
     url: '/api/panelView/viewsWithIds',
     method: 'post',
-    timeout: 30000,
+    loading: true,
+    data
+  })
+}
+
+export function paramsWithIds(type, data) {
+  return request({
+    url: '/dataset/table/paramsWithIds/' + type,
+    method: 'post',
     loading: true,
     data
   })
@@ -23,7 +30,6 @@ export function findOne(id) {
   return request({
     url: '/api/panelView/findOne/' + id,
     method: 'get',
-    timeout: 30000,
     loading: true
   })
 }

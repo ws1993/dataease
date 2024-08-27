@@ -1,8 +1,6 @@
 package io.dataease.service.system;
 
-import io.dataease.base.domain.SystemParameter;
-import io.dataease.base.domain.SystemParameterExample;
-import io.dataease.base.mapper.SystemParameterMapper;
+import cn.hutool.core.util.ArrayUtil;
 import io.dataease.commons.constants.ParamConstants;
 import io.dataease.commons.exception.DEException;
 import io.dataease.commons.utils.CommonBeanFactory;
@@ -10,25 +8,32 @@ import io.dataease.commons.utils.EncryptUtils;
 import io.dataease.commons.utils.LogUtil;
 import io.dataease.controller.sys.response.MailInfo;
 import io.dataease.i18n.Translator;
+import io.dataease.plugins.common.base.domain.SystemParameter;
+import io.dataease.plugins.common.base.domain.SystemParameterExample;
+import io.dataease.plugins.common.base.mapper.SystemParameterMapper;
 import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.lang3.BooleanUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.mail.javamail.JavaMailSenderImpl;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
+import org.springframework.util.Assert;
+
 import javax.activation.DataHandler;
+import javax.activation.FileDataSource;
 import javax.annotation.Resource;
 import javax.mail.Message;
 import javax.mail.MessagingException;
 import javax.mail.internet.MimeBodyPart;
 import javax.mail.internet.MimeMessage;
 import javax.mail.internet.MimeMultipart;
+import javax.mail.internet.MimeUtility;
 import javax.mail.util.ByteArrayDataSource;
+import java.io.File;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Properties;
 import java.util.UUID;
-
 
 @Service
 public class EmailService {
@@ -47,7 +52,6 @@ public class EmailService {
 
     private static final String SMTP_CONNECTIONTIMEOUT_VAL = "5000";
 
-
     @Resource
     private SystemParameterMapper systemParameterMapper;
 
@@ -57,8 +61,10 @@ public class EmailService {
      * @param content 内容
      */
     public void send(String to, String title, String content) {
-        if (StringUtils.isBlank(to)) return;
+        if (StringUtils.isBlank(to))
+            return;
         MailInfo mailInfo = proxy().mailInfo();
+        checkMailInfo(mailInfo);
         JavaMailSenderImpl driver = driver(mailInfo);
 
         MimeMessage mimeMessage = driver.createMimeMessage();
@@ -76,26 +82,29 @@ public class EmailService {
         }
     }
 
-    public void sendWithImage(String to, String title, String content, byte[] bytes) {
-        if (StringUtils.isBlank(to)) return;
+
+
+
+
+    public void sendWithImageAndFiles(String to, String title, String content, byte[] bytes, List<File> files) {
+        if (StringUtils.isBlank(to))
+            return;
+
+        if (ArrayUtil.isEmpty(bytes)) {
+            send(to, title, content);
+            return;
+        }
         MailInfo mailInfo = proxy().mailInfo();
+        checkMailInfo(mailInfo);
         JavaMailSenderImpl driver = driver(mailInfo);
         MimeMessage mimeMessage = driver.createMimeMessage();
+        MimeMultipart multipart = new MimeMultipart();
 
-        MimeBodyPart image = new MimeBodyPart();
-        DataHandler png = new DataHandler(new ByteArrayDataSource(bytes, "image/png"));
-
-        String uuid = UUID.randomUUID().toString();
-        MimeBodyPart text = new MimeBodyPart();
         try {
-
-            text.setContent("<h2>" + content + "</h2>" + "<br/><img src='cid:" + uuid + "' />", "text/html; charset=gb2312");
-            image.setDataHandler(png);
-            image.setContentID(uuid);
-            MimeMultipart multipart = new MimeMultipart();
-            multipart.addBodyPart(text);
-            multipart.addBodyPart(image);
-            multipart.setSubType("related");
+            multipart = addImage(multipart, bytes, content);
+            if (CollectionUtils.isNotEmpty(files)) {
+                multipart = addFiles(multipart, files);
+            }
             mimeMessage.setFrom(driver.getUsername());
             mimeMessage.setSubject(title);
             mimeMessage.setRecipients(Message.RecipientType.TO, to);
@@ -103,8 +112,38 @@ public class EmailService {
             driver.send(mimeMessage);
         } catch (Exception e) {
             LogUtil.error(e.getMessage(), e);
-            throw new RuntimeException(e);
+            DEException.throwException(e);
         }
+    }
+
+    private MimeMultipart addImage(MimeMultipart multipart, byte[] bytes, String content) throws Exception{
+        MimeBodyPart image = new MimeBodyPart();
+        DataHandler png = new DataHandler(new ByteArrayDataSource(bytes, "image/png"));
+        String uuid = UUID.randomUUID().toString();
+        MimeBodyPart text = new MimeBodyPart();
+        text.setContent(content + "<br/><img style='width: 60%;' src='cid:" + uuid + "' />", "text/html; charset=gb2312");
+        image.setDataHandler(png);
+        image.setContentID(uuid);
+
+        multipart.addBodyPart(text);
+        multipart.addBodyPart(image);
+        multipart.setSubType("related");
+        return multipart;
+    }
+
+    private MimeMultipart addFiles(MimeMultipart multipart, List<File> files) throws Exception{
+
+        for (int i = 0; i < files.size(); i++) {
+            File file = files.get(i);
+            MimeBodyPart attach = new MimeBodyPart();
+            FileDataSource fileDataSource = new FileDataSource(file);
+            attach.setDataHandler(new DataHandler(fileDataSource));
+            attach.setFileName(MimeUtility.encodeText(file.getName(), "gb2312", null));
+            multipart.addBodyPart(attach);
+        }
+
+        multipart.setSubType("related");
+        return multipart;
     }
 
     public JavaMailSenderImpl driver(MailInfo mailInfo) {
@@ -131,8 +170,8 @@ public class EmailService {
         return CommonBeanFactory.getBean(EmailService.class);
     }
 
-
     public MailInfo mailInfo() {
+        System.getProperties().setProperty("mail.mime.splitlongparameters", "false");
         String type = ParamConstants.Classify.MAIL.getValue();
         List<SystemParameter> paramList = getParamList(type);
         MailInfo mailInfo = new MailInfo();
@@ -156,16 +195,23 @@ public class EmailService {
                 }
             }
         }
+
         return mailInfo;
     }
 
+    public void checkMailInfo(MailInfo info) {
+
+        Assert.notNull(info, Translator.get("I18N_EMAIL_CONFIG_ERROR"));
+        Assert.notNull(info.getHost(), Translator.get("I18N_EMAIL_HOST_ERROR"));
+        Assert.notNull(info.getPort(), Translator.get("I18N_EMAIL_PORT_ERROR"));
+        Assert.notNull(info.getAccount(), Translator.get("I18N_EMAIL_ACCOUNT_ERROR"));
+    }
 
     public List<SystemParameter> getParamList(String type) {
         SystemParameterExample example = new SystemParameterExample();
         example.createCriteria().andParamKeyLike(type + "%");
         return systemParameterMapper.selectByExample(example);
     }
-
 
     public void editMail(List<SystemParameter> parameters) {
         parameters.forEach(parameter -> {
@@ -203,7 +249,7 @@ public class EmailService {
             props.put("mail.smtp.starttls.enable", "true");
         }
         props.put("mail.smtp.timeout", "30000");
-        props.put("mail.smtp.connectiontimeout", "5000");
+        props.put("mail.smtp.connectiontimeout", "10000");
         javaMailSender.setJavaMailProperties(props);
         try {
             javaMailSender.testConnection();
@@ -221,12 +267,11 @@ public class EmailService {
                 helper.setText("这是一封测试邮件，邮件发送成功", true);
                 helper.setTo(recipients);
                 javaMailSender.send(mimeMessage);
-            } catch (MessagingException e) {
+            } catch (Exception e) {
                 LogUtil.error(e.getMessage(), e);
                 DEException.throwException(Translator.get("connection_failed"));
             }
         }
-
 
     }
 }

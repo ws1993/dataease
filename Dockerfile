@@ -1,20 +1,10 @@
-FROM registry.cn-qingdao.aliyuncs.com/dataease/fabric8-java-alpine-openjdk8-jre
+FROM registry.cn-qingdao.aliyuncs.com/dataease/fabric8-java-alpine-openjdk8-jre:edge-chromium
 
 ARG IMAGE_TAG
 
-RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories
-
-RUN apk add chromium=77.0.3865.120-r0 --no-cache
-
-RUN apk add chromium-chromedriver=77.0.3865.120-r0 --no-cache
-
-RUN mkdir -p /opt/apps
-
-RUN mkdir -p /opt/dataease/data/feature/full
+RUN mkdir -p /opt/apps /opt/dataease/data/feature/full /opt/dataease/drivers
 
 ADD mapFiles/* /opt/dataease/data/feature/full/
-
-RUN mkdir -p /opt/dataease/drivers
 
 ADD drivers/* /opt/dataease/drivers/
 

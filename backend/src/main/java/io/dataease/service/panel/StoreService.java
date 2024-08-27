@@ -1,14 +1,14 @@
 package io.dataease.service.panel;
 
-import io.dataease.base.domain.PanelStore;
-import io.dataease.base.domain.PanelStoreExample;
-import io.dataease.base.mapper.PanelStoreMapper;
-import io.dataease.base.mapper.ext.ExtPanelStoreMapper;
-import io.dataease.base.mapper.ext.query.GridExample;
+import io.dataease.ext.ExtPanelStoreMapper;
+import io.dataease.ext.query.GridExample;
 import io.dataease.commons.utils.AuthUtils;
 import io.dataease.controller.sys.base.BaseGridRequest;
 import io.dataease.controller.sys.base.ConditionEntity;
 import io.dataease.dto.panel.PanelStoreDto;
+import io.dataease.plugins.common.base.domain.PanelStore;
+import io.dataease.plugins.common.base.domain.PanelStoreExample;
+import io.dataease.plugins.common.base.mapper.PanelStoreMapper;
 import org.springframework.stereotype.Service;
 
 import javax.annotation.Resource;
@@ -52,5 +52,12 @@ public class StoreService {
         GridExample example = request.convertExample();
         return extPanelStoreMapper.query(example);
     }
+
+    public Long count(String panelId) {
+        PanelStoreExample example = new PanelStoreExample();
+        example.createCriteria().andUserIdEqualTo(AuthUtils.getUser().getUserId()).andPanelGroupIdEqualTo(panelId);
+        return panelStoreMapper.countByExample(example);
+    }
+
 
 }
