@@ -2,12 +2,15 @@
 name: Bug 提交
 about: 提交产品缺陷帮助我们更好的改进
 title: "[Bug]"
-labels: 类型:bug
-assignees: tjlygdx
+labels: 状态:待处理
+assignees: BBchicken-9527, zrfit
 
 ---
 
 **DataEase 版本**
+
+
+**运行方式(安装包运行 or 源码运行 ?)**
 
 
 **浏览器版本**
